@@ -53,15 +53,17 @@ NON_CONTENT_TITLES = {
     "nota de la autora","nota del editor","nota de la editorial"
 }
 
-HREF_SKIP_PATTERNS = (
-    "cover","title","toc","nav","copyright","acknowledg","front",
-    "colophon","index","about","dedic","preface","foreword","prolog",
-    "epilog","gloss","biblio","legal"
+HREF_SKIP_REGEX = re.compile(
+    r'(?:^|/)(?:toc\.(?:ncx|x?html?)|nav\.(?:x?html?)|'
+    r'title|cover|copyright|acknowledg|front|colophon|'
+    r'about|dedic|preface|foreword|prolog|epilog|gloss|biblio|legal)'
+    r'|(?:^|/)index\.(?:x?html?)$',
+    re.IGNORECASE,
 )
 
 def is_non_content_href(href: str) -> bool:
     h = (href or "").lower()
-    return any(key in h for key in HREF_SKIP_PATTERNS)
+    return bool(HREF_SKIP_REGEX.search(h))
 
 def is_content_title(title: str) -> bool:
     t = re.sub(r"\s+"," ", title or "").strip().lower()
@@ -98,8 +100,16 @@ def flatten_toc(toc) -> List[Tuple[str,str]]:
     return filtered
 
 def read_epub_chapter_md(book: epub.EpubBook, href: str) -> str:
-    item = book.get_item_with_href(href)
-    if not item: return ""
+    base = (href or '').split('#', 1)[0]
+    item = book.get_item_with_href(base)
+    if not item:
+        base_norm = (base or '').lstrip('./')
+        for it in book.get_items():
+            if getattr(it, 'href', '').lstrip('./') == base_norm:
+                item = it
+                break
+    if not item:
+        return ""
     content = item.get_content().decode("utf-8", errors="ignore")
     return html_to_markdown(content)
 
@@ -326,14 +336,16 @@ def process_epub(epub_path: Path):
         chapter_md = read_epub_chapter_md(book, href)
         log("  · extrayendo y limpiando Markdown")
         if not chapter_md.strip():
-            # vacío o binario → omitir
+            log(f"  · omitido: sin texto ({href})")
             continue
         # Heurísticas de “texto suficiente”: omite capítulos vacíos, muy cortos o solo con imágenes
         words = re.findall(r"\w+", chapter_md, flags=re.UNICODE)
         if len(words) < 60:  # umbral conservador; ajusta según prefieras
+            log(f"  · omitido: <60 palabras ({len(words)}) ({href})")
             continue
         if re.fullmatch(r"(?:!\[.*?\]\(.*?\)\s*){1,}$", chapter_md.strip()):
             # capítulo compuesto solo por imágenes en Markdown
+            log(f"  · omitido: solo imágenes ({href})")
             continue
         log(f"  · resumiendo (≈{approx_token_count(chapter_md)} tokens de entrada)")
         summary = summarize_chapter(title, chapter_md)
