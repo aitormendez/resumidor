@@ -99,19 +99,64 @@ def flatten_toc(toc) -> List[Tuple[str,str]]:
             seen.add(key); filtered.append(key)
     return filtered
 
-def read_epub_chapter_md(book: epub.EpubBook, href: str) -> str:
-    base = (href or '').split('#', 1)[0]
+# --- Helper para partir href en base y fragmento ---
+def split_href(href: str) -> tuple[str, str]:
+    href = href or ""
+    if "#" in href:
+        base, frag = href.split("#", 1)
+        return base, frag
+    return href, ""
+
+def _get_item_by_base(book: epub.EpubBook, base: str):
     item = book.get_item_with_href(base)
-    if not item:
-        base_norm = (base or '').lstrip('./')
-        for it in book.get_items():
-            if getattr(it, 'href', '').lstrip('./') == base_norm:
-                item = it
-                break
+    if item:
+        return item
+    base_norm = (base or '').lstrip('./')
+    for it in book.get_items():
+        if getattr(it, 'href', '').lstrip('./') == base_norm:
+            return it
+    return None
+
+def read_epub_section_md(book: epub.EpubBook, base: str, frag: str, next_frag: str | None) -> str:
+    """Extrae solo la sección desde `frag` hasta `next_frag` dentro del archivo `base`.
+    Si no existe `frag`, devuelve el documento completo como último recurso.
+    """
+    item = _get_item_by_base(book, base)
     if not item:
         return ""
-    content = item.get_content().decode("utf-8", errors="ignore")
-    return html_to_markdown(content)
+    html = item.get_content().decode("utf-8", errors="ignore")
+    soup = BeautifulSoup(html, "html.parser")
+    # limpiar elementos no textuales
+    for tag in soup.find_all(["script","style","nav","header","footer"]):
+        tag.decompose()
+
+    if frag:
+        start = soup.find(id=frag) or soup.find(attrs={"name": frag})
+    else:
+        start = None
+
+    end = None
+    if next_frag:
+        end = soup.find(id=next_frag) or soup.find(attrs={"name": next_frag})
+
+    # Si tenemos ancla de inicio, construimos el fragmento hasta la siguiente ancla
+    if start:
+        pieces = []
+        # incluir el propio nodo de inicio
+        pieces.append(str(start))
+        # Recorrer en orden de documento desde 'start' hasta 'next_frag'
+        for node in start.next_elements:
+            if hasattr(node, 'get'):
+                nid = node.get('id') or node.get('name')
+                if next_frag and (nid == next_frag):
+                    break
+            pieces.append(str(node))
+        frag_html = "".join(pieces)
+        md = html_to_markdown(frag_html)
+        return md
+
+    # Fallback: si no hay `frag`, o no lo encontramos, convertimos todo
+    return html_to_markdown(str(soup))
 
 def ensure_md(path_md: Path):
     if not path_md.exists():
@@ -316,14 +361,26 @@ def process_epub(epub_path: Path):
     book = epub.read_epub(str(epub_path))
     toc_pairs = flatten_toc(book.toc)
 
-    chapters = []
+    # Construimos capítulos con base/frag
+    raw_chapters: list[tuple[str, str, str, str]] = []  # (title, href, base, frag)
     for title, href in toc_pairs:
         if not href:
             continue
         if not is_content_title(title) or is_non_content_href(href):
-            # Ej.: “Cubierta”, “Índice”, nav.xhtml, toc.ncx…
             continue
-        chapters.append((title.strip() or "Capítulo", href))
+        base, frag = split_href(href)
+        raw_chapters.append((title.strip() or "Capítulo", href, base, frag))
+
+    # Calculamos next_frag por cada entrada (siguiente ancla del mismo base)
+    chapters: list[tuple[str, str, str, str, str | None]] = []  # (title, href, base, frag, next_frag)
+    for i, (title, href, base, frag) in enumerate(raw_chapters):
+        next_frag = None
+        for j in range(i + 1, len(raw_chapters)):
+            t2, href2, base2, frag2 = raw_chapters[j]
+            if base2 == base:
+                next_frag = frag2 or None
+                break
+        chapters.append((title, href, base, frag, next_frag))
 
     log(f"Capítulos tras filtrado: {len(chapters)}")
 
@@ -331,10 +388,10 @@ def process_epub(epub_path: Path):
         print("TOC sin capítulos sustantivos; se omite.")
         return
 
-    for idx, (title, href) in enumerate(chapters, 1):
+    for idx, (title, href, base, frag, next_frag) in enumerate(chapters, 1):
         log(f"Capítulo {idx}/{len(chapters)}: {title}")
-        chapter_md = read_epub_chapter_md(book, href)
-        log("  · extrayendo y limpiando Markdown")
+        chapter_md = read_epub_section_md(book, base, frag, next_frag)
+        log(f"  · extrayendo sección base={Path(base).name} frag={frag or '-'} → {len(chapter_md)} chars")
         if not chapter_md.strip():
             log(f"  · omitido: sin texto ({href})")
             continue
