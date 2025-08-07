@@ -4,7 +4,7 @@ Este documento recoge objetivos y mejoras pendientes para el proyecto de resúme
 
 ---
 
-## Objetivos inmediatos (1–2 semanas)
+## Funcionalidades ya implementadas
 
 - **Skip de capítulos ya escritos**: no volver a anexar si existe `## Título` en el `.md` (flag `--skip-existing`).
 - **Flags de depuración/alcance**:
@@ -21,10 +21,12 @@ Este documento recoge objetivos y mejoras pendientes para el proyecto de resúme
 
 ---
 
-## Medio plazo (3–8 semanas)
+## Funcionalidades pendientes
 
 - **Extractor PDF**:
   - `pypdf` + _outlines_ (bookmarks) como TOC cuando existan.
+  - Heurística para detección de índice no estructurado (por palabras clave, número de capítulos, distribución, etc.).
+  - Corrección automática de títulos fragmentados mediante modelo LLM (detección de palabras concatenadas o separadas por letras).
   - _Fallback_ por grupos de páginas (p. ej., 8–12) con fusión.
   - (Más adelante) OCR selectivo si el texto es escaso.
 - **Extractor DOCX**:

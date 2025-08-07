@@ -17,8 +17,9 @@ Genera **resúmenes por capítulos** y un **metarresumen** de libros en formato 
    # Resumen por capítulos
    ```
 
-3. **Lee el TOC** (tabla de contenidos) del EPUB.
+3. **Lee el TOC** (tabla de contenidos) del EPUB o estructura el contenido por heurística si es PDF.
 4. **Filtra** entradas no sustantivas (portada, índice, créditos, etc.) y capítulos sin texto útil.
+   4bis. En caso de PDF sin índice fiable, **detecta capítulos por análisis tipográfico** y corrige títulos malformados usando un modelo LLM.
 5. Para cada capítulo **extrae el texto** (Markdown), lo **trocea** si es largo (_map_), genera **sub‑resúmenes**, y luego **fusiona** en un **resumen de capítulo** (_reduce_).
 6. **Anexa** cada resumen de capítulo al `.md` bajo `# Resumen por capítulos`.
 7. Al final, con los resúmenes por capítulo, compone un **“Resumen general”** (1–3 párrafos) y lo inserta bajo `# Resumen general`.
@@ -141,6 +142,7 @@ python epub_resumidor.py "/ruta/epubs"
 ## Cómo funciona (detalle)
 
 - **TOC y filtrado**: Se aplanan las entradas del TOC (`ebooklib.epub`) y se filtran títulos/hrefs no sustantivos (EN/ES) y capítulos **sin texto útil** (heurística: `< 60` palabras o solo imágenes).
+- **PDF sin TOC fiable**: Se aplica una heurística de títulos basada en el tamaño y la fuente del texto para segmentar capítulos. Los títulos en mayúsculas o mal espaciados se corrigen automáticamente usando un modelo LLM.
 - **Map**: el capítulo se divide por párrafos en bloques de ~`NUM_CTX * CHUNK_FRACTION` con `OVERLAP_TOKENS` de solape. Cada bloque se resume con Ollama.
 - **Reduce**: se fusionan los sub‑resúmenes en **2–5 párrafos**; si llegase un bloque único, se normaliza a párrafos respetando finales de frase.
 - **Metarresumen**: se genera a partir de los resúmenes por capítulo (1–3 párrafos), con las mismas restricciones de estilo.
