@@ -84,9 +84,14 @@ def ensure_md(path: Path):
         path.write_text("# Resumen general\n\n# Resumen por capítulos\n", encoding="utf-8")
 
 
-def append_chapter_summary(path: Path, title: str, summary: str):
+def append_chapter_summary(path: Path, title: str, summary: str, level: int = 2):
+    """
+    Añade un bloque de resumen al Markdown.
+    `level` indica la jerarquía de cabecera (2 = ##, 3 = ###, …).
+    """
     md = path.read_text(encoding="utf-8")
-    block = f"\n\n## {title}\n\n{summary.strip()}\n"
+    header = "#" * max(level, 2)  # nunca menos de ##
+    block = f"\n\n{header} {title}\n\n{summary.strip()}\n"
     path.write_text(md + block, encoding="utf-8")
 
 

@@ -19,6 +19,7 @@ except ImportError:
     ITEM_DOCUMENT = 9  # type: ignore
 
 from .utils import html_to_markdown, flatten_toc, split_href
+from .extractor_base import ExtractorBase
 
 # ---------- filtros -------------------------------------------------------------
 
@@ -121,7 +122,7 @@ def _section_md(book: epub.EpubBook, base: str, frag: str, nxt: str | None) -> s
 # ---------- clase extractor -----------------------------------------------------
 
 
-class EpubExtractor:
+class EpubExtractor(ExtractorBase):
     """
     Provee `.sections() -> Iterable[(title, markdown)]`
     """
@@ -172,15 +173,15 @@ class EpubExtractor:
             self._full_md = html_to_markdown("\n".join(parts))
 
     # ------------------------------------------------------------------ #
+    # Métodos requeridos por ExtractorBase
+    # ------------------------------------------------------------------ #
 
-    def sections(self) -> Iterable[Tuple[str, str]]:
-        if self.chapters:
-            for title, base, frag, nxt in self.chapters:
-                md = _section_md(self.book, base, frag, nxt)
-                if len(md.split()) < 60:
-                    continue
-                yield title, md
-        else:
-            md = getattr(self, "_full_md", "").strip()
-            if md:
-                yield "Libro completo", md
+    def _iter_raw_sections(self):
+        # Reutilizamos la lógica actual pero devolviendo HTML sin convertir
+        for title, base, frag, nxt in self.chapters:
+            raw_html = _section_md(self.book, base, frag, nxt)
+            if raw_html:
+                yield title, raw_html
+
+    def _fallback_full_text(self) -> str:
+        return getattr(self, "_full_md", "")

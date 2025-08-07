@@ -2,3 +2,5 @@ requests
 ebooklib
 beautifulsoup4
 html2text
+pypdf
+pdfplumber

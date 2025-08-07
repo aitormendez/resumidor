@@ -159,13 +159,18 @@ class Summarizer:
     def run(self):
         processed_any = False
 
-        for idx, (title, md) in enumerate(self.extractor.sections(), 1):
+        for idx, section in enumerate(self.extractor.sections(), 1):
+            # Desempaquetar según extractor (EPUB devuelve 2 elementos, PDF 3)
+            if len(section) == 3:
+                title, md, level = section
+            else:
+                title, md = section
+                level = 2  # nivel por defecto
+
             processed_any = True
             log(f"Capítulo {idx}: {title}")
             summary = self._summarize_chunk(title, md)
-            append_chapter_summary(self.out_md, title, summary)
-            log("  · añadido al markdown")
-            time.sleep(0.05)
+            append_chapter_summary(self.out_md, title, summary, level=level)
 
         if not processed_any and hasattr(self.extractor, "_fallback_full_md"):
             md_full = getattr(self.extractor, "_fallback_full_md", "").strip()
