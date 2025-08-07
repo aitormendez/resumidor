@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Iterable, Tuple, List
 
 import requests
+import re
 
 from .config import (
     MODEL,
@@ -95,6 +96,20 @@ def _ollama_chat(prompt: str, *, stream: bool | None = None, tag: str = "") -> s
     return full.strip()
 
 
+def _fix_title_with_llm(bad_title: str) -> str:
+    """
+    Usa el modelo LLM para reinsertar espacios y capitalizar un título pegado.
+    Se envía solo el título y se pide devolver la versión corregida.
+    """
+    prompt = (
+        "Corrige el espaciado y las mayúsculas de esta frase para que quede "
+        "como un título normal en español. Devuelve SOLO el título corregido:\n\n"
+        f"{bad_title}"
+    )
+    fixed = _ollama_chat(prompt, stream=False)
+    return fixed.strip() or bad_title
+
+
 # ---------- Clase principal ------------------------------------------------------
 
 
@@ -166,6 +181,13 @@ class Summarizer:
             else:
                 title, md = section
                 level = 2  # nivel por defecto
+
+            # Si parece un título pegado (≥15 letras seguidas sin espacio), corrígelo vía LLM
+            # Dentro del bucle en summarizer.py
+            if re.search(r"[A-Za-zÁÉÍÓÚÜÑ]{15,}", title):
+                title = _fix_title_with_llm(title)
+            # Elimina cualquier etiqueta <think> residual del título antes de log o escritura
+            title = strip_think(title)
 
             processed_any = True
             log(f"Capítulo {idx}: {title}")
