@@ -124,7 +124,7 @@ def _section_md(book: epub.EpubBook, base: str, frag: str, nxt: str | None) -> s
 
 class EpubExtractor(ExtractorBase):
     """
-    Provee `.sections() -> Iterable[(title, markdown)]`
+    Provee `.sections() -> Iterable[(title, markdown, level)]`
     """
 
     def __init__(self, path: Path):
@@ -181,7 +181,7 @@ class EpubExtractor(ExtractorBase):
         for title, base, frag, nxt in self.chapters:
             raw_html = _section_md(self.book, base, frag, nxt)
             if raw_html:
-                yield title, raw_html
+                yield title, raw_html, 2
 
     def _fallback_full_text(self) -> str:
         return getattr(self, "_full_md", "")
