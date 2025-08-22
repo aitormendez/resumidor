@@ -54,13 +54,15 @@ pip install requests ebooklib beautifulsoup4 html2text
 
 ## Cómo se usa
 
+Sitúate en el directorio **padre** que contiene la carpeta `resumidor` (por ejemplo, `clients/`), y ejecuta:
+
 ```bash
-python epub_resumidor.py "/ruta/al/directorio_con_epub"
+python -m resumidor.cli "/ruta/al/directorio_con_epub_o_pdf"
 ```
 
-El script procesará **todos** los `.epub` del directorio.
+El script procesará **todos** los `.epub` y `.pdf` del directorio indicado.
 
-**Salida**: para cada libro, se escribirá `NombreDelLibro-RESUMEN.md` en el mismo directorio del `.epub`.
+**Salida**: para cada libro, se escribirá `NombreDelLibro-RESUMEN.md` en el mismo directorio del archivo original.
 
 > El script usa **fsync** y verificación tras la escritura para mayor fiabilidad en FS sincronizados (p. ej., Nextcloud).
 
